@@ -5,7 +5,8 @@
 # MIT License
 #
 
-uname_r=$(shell uname -r)
+uname_r ?= $(shell uname -r)
+KDIR ?= /lib/modules/$(uname_r)/build
 
 # If KERNELRELEASE is defined, we've been invoked from the
 # kernel build system and can use its language
@@ -34,10 +35,10 @@ else
 DEST := /lib/modules/$(uname_r)/kernel
 
 all:
-	make -C /lib/modules/$(uname_r)/build M=$(PWD) modules
+	$(MAKE) -C $(KDIR) M=$(CURDIR) modules
 
 clean:
-	make -C /lib/modules/$(uname_r)/build M=$(PWD) clean
+	$(MAKE) -C $(KDIR) M=$(CURDIR) clean
 
 install:
 	sudo cp snd-soc-ac108.ko ${DEST}/sound/soc/codecs/

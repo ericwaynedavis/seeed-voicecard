@@ -1,3 +1,7 @@
+> **Pi 5 / Linux 6.18 fork:** See [PORTING.md](PORTING.md) for the original
+> WM8960 2-mic HAT build and installation path. Basic capture/playback tests pass; see validation limits in PORTING.md.
+> The installation instructions below are historical.
+
 # seeed-voicecard
 
 The drivers for [ReSpeaker Mic Hat](https://www.seeedstudio.com/ReSpeaker-2-Mics-Pi-HAT-p-2874.html), [ReSpeaker 4 Mic Array](https://www.seeedstudio.com/ReSpeaker-4-Mic-Array-for-Raspberry-Pi-p-2941.html), [6-Mics Circular Array Kit](), and [4-Mics Linear Array Kit]() for Raspberry Pi.
@@ -11,7 +15,7 @@ sudo ./install.sh
 sudo reboot
 ```
 
-**Note** If you have 64-bit version of Rasperry Pi OS, use install_arm64.sh script for driver installation. 
+**Note** If you have 64-bit version of Rasperry Pi OS, use install_arm64.sh script for driver installation.
 
 ## ReSpeaker Documentation
 
@@ -22,7 +26,7 @@ Up to date documentation for reSpeaker products can be found in [Seeed Studio Wi
 ### Coherence
 
 Estimate the magnitude squared coherence using Welch’s method.
-![4-mics-linear-array-kit coherence](https://user-images.githubusercontent.com/3901856/37277486-beb1dd96-261f-11e8-898b-84405bfc7cea.png)  
+![4-mics-linear-array-kit coherence](https://user-images.githubusercontent.com/3901856/37277486-beb1dd96-261f-11e8-898b-84405bfc7cea.png)
 Note: 'CO 1-2' means the coherence between channel 1 and channel 2.
 
 ```bash
@@ -39,7 +43,7 @@ python tools/coherence.py a.wav
 If you want to upgrade the driver , you need uninstall the driver first.
 
 ```
-pi@raspberrypi:~/seeed-voicecard $ sudo ./uninstall.sh 
+pi@raspberrypi:~/seeed-voicecard $ sudo ./uninstall.sh
 ...
 ------------------------------------------------------
 Please reboot your raspberry pi to apply all settings
@@ -60,8 +64,8 @@ We provide official support for using reSpeaker with the following OS:
 And following hardware platforms:
 - Raspberry Pi 3 (all models), Raspberry Pi 4 (all models), Raspberry Pi Zero and Zero W
 
-Anything beyond the scope of official support is considered to be community supported. Support for other OS/hardware platforms can be added, provided MOQ requirements can be met. 
+Anything beyond the scope of official support is considered to be community supported. Support for other OS/hardware platforms can be added, provided MOQ requirements can be met.
 
-If you have a technical problem when using reSpeaker with one of the officially supported platforms/OS, feel free to create an issue on Github. For general questions or suggestions, please use [Seeed forum](https://forum.seeedstudio.com/c/products/respeaker/15). 
+If you have a technical problem when using reSpeaker with one of the officially supported platforms/OS, feel free to create an issue on Github. For general questions or suggestions, please use [Seeed forum](https://forum.seeedstudio.com/c/products/respeaker/15).
 
 

@@ -265,14 +265,14 @@ static int snd_ac108_put_volsw(struct snd_kcontrol *kcontrol,
 	return ret;
 }
 
-#define SOC_AC108_SINGLE_TLV(xname, reg, shift, max, invert, chip, tlv_array) \
+#define SOC_AC108_SINGLE_TLV(xname, xreg, xshift, xmax, xinvert, chip, tlv_array) \
 {	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
 	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ |\
 		 SNDRV_CTL_ELEM_ACCESS_READWRITE,\
 	.tlv.p = (tlv_array), \
 	.info = snd_soc_info_volsw, .get = snd_ac108_get_volsw,\
 	.put = snd_ac108_put_volsw, \
-	.private_value = SOC_SINGLE_VALUE(reg, shift, max, invert, chip) }
+	.private_value = ((unsigned long)&(struct soc_mixer_control) { .reg = xreg, .rreg = xreg, .shift = xshift, .rshift = xshift, .min = 0, .max = xmax, .platform_max = xmax, .invert = xinvert, .autodisable = chip }) }
 
 /* single ac108 */
 static const struct snd_kcontrol_new ac108_snd_controls[] = {
@@ -653,7 +653,7 @@ static int ac108_hw_params(struct snd_pcm_substream *substream, struct snd_pcm_h
 
 	dev_dbg(dai->dev, "%s() stream=%s play:%d capt:%d +++\n", __func__,
 			snd_pcm_stream_str(substream),
-			dai->stream_active[SNDRV_PCM_STREAM_PLAYBACK], dai->stream_active[SNDRV_PCM_STREAM_CAPTURE]);
+			dai->stream[SNDRV_PCM_STREAM_PLAYBACK].active, dai->stream[SNDRV_PCM_STREAM_CAPTURE].active);
 
 	if (ac10x->i2c101) {
 		ret = ac101_hw_params(substream, params, dai);
@@ -664,8 +664,8 @@ static int ac108_hw_params(struct snd_pcm_substream *substream, struct snd_pcm_h
 		}
 	}
 
-	if ((substream->stream == SNDRV_PCM_STREAM_CAPTURE && dai->stream_active[SNDRV_PCM_STREAM_PLAYBACK])
-	 || (substream->stream == SNDRV_PCM_STREAM_PLAYBACK && dai->stream_active[SNDRV_PCM_STREAM_CAPTURE])) {
+	if ((substream->stream == SNDRV_PCM_STREAM_CAPTURE && dai->stream[SNDRV_PCM_STREAM_PLAYBACK].active)
+	 || (substream->stream == SNDRV_PCM_STREAM_PLAYBACK && dai->stream[SNDRV_PCM_STREAM_CAPTURE].active)) {
 		/* not configure hw_param twice */
 		/* return 0; */
 	}
@@ -853,7 +853,7 @@ static int ac108_set_fmt(struct snd_soc_dai *dai, unsigned int fmt) {
 	dev_dbg(dai->dev, "%s\n", __FUNCTION__);
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBM_CFM:    /*AC108 Master*/
+	case SND_SOC_DAIFMT_CBP_CFP:    /*AC108 Master*/
 		if (! ac10x->i2c101 || _MASTER_MULTI_CODEC == _MASTER_AC108) {
 			dev_dbg(dai->dev, "AC108 set to work as Master\n");
 			/**
@@ -869,7 +869,7 @@ static int ac108_set_fmt(struct snd_soc_dai *dai, unsigned int fmt) {
 			dev_dbg(dai->dev, "used as slave when AC101 is master\n");
 		}
 		fallthrough;
-	case SND_SOC_DAIFMT_CBS_CFS:    /*AC108 Slave*/
+	case SND_SOC_DAIFMT_CBC_CFC:    /*AC108 Slave*/
 		dev_dbg(dai->dev, "AC108 set to work as Slave\n");
 		/**
 		 * 0x30:chip is slave mode, BCLK & LRCK input,enable SDO1_EN and 
@@ -1329,7 +1329,6 @@ static struct snd_soc_codec_driver ac10x_soc_codec_driver = {
 	.idle_bias_on 	= 1,
 	.use_pmdown_time 	= 1,
 	.endianness 	= 1,
-	.non_legacy_dai_naming 	= 1,
 #endif
 };
 
@@ -1411,7 +1410,15 @@ static const struct regmap_config ac108_regmap = {
 	.max_register = 0xDF,
 	.cache_type = REGCACHE_FLAT,
 };
-static int ac108_i2c_probe(struct i2c_client *i2c, const struct i2c_device_id *i2c_id) {
+static const struct i2c_device_id ac108_i2c_id[] = {
+	{ "ac108_0", 0 },
+	{ "ac108_1", 1 },
+	{ "ac108_2", 2 },
+	{ "ac108_3", 3 },
+	{ "ac101", AC101_I2C_ID },
+	{ }
+};
+static int ac108_i2c_probe(struct i2c_client *i2c) {
 	struct device_node *np = i2c->dev.of_node;
 	unsigned int val = 0;
 	int ret = 0, index;
@@ -1424,11 +1431,11 @@ static int ac108_i2c_probe(struct i2c_client *i2c, const struct i2c_device_id *i
 		}
 	}
 
-	index = (int)i2c_id->driver_data;
+	index = (int)i2c_match_id(ac108_i2c_id, i2c)->driver_data;
 	if (index == AC101_I2C_ID) {
 		ac10x->i2c101 = i2c;
 		i2c_set_clientdata(i2c, ac10x);
-		ret = ac101_probe(i2c, i2c_id);
+		ret = ac101_probe(i2c, i2c_match_id(ac108_i2c_id, i2c));
 		if (ret) {
 			ac10x->i2c101 = NULL;
 			return ret;
@@ -1494,7 +1501,7 @@ __ret:
 	return ret;
 }
 
-static int ac108_i2c_remove(struct i2c_client *i2c) {
+static void ac108_i2c_remove(struct i2c_client *i2c) {
 	if (ac10x->codec != NULL) {
 		snd_soc_unregister_codec(&ac10x->i2c[_MASTER_INDEX]->dev);
 		ac10x->codec = NULL;
@@ -1519,17 +1526,8 @@ __ret:
 		kfree(ac10x);
 		ac10x = NULL;
 	}
-	return 0;
 }
 
-static const struct i2c_device_id ac108_i2c_id[] = {
-	{ "ac108_0", 0 },
-	{ "ac108_1", 1 },
-	{ "ac108_2", 2 },
-	{ "ac108_3", 3 },
-	{ "ac101", AC101_I2C_ID },
-	{ }
-};
 MODULE_DEVICE_TABLE(i2c, ac108_i2c_id);
 
 static const struct of_device_id ac108_of_match[] = {

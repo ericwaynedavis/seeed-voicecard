@@ -50,6 +50,52 @@ must not be used for this port. To undo this installation, remove the appended
 Seeed boot block and the installed overlay and WM8960 module, run `depmod -a`,
 and reboot. Preserve unrelated boot configuration changes.
 
+## Secure-boot / PCM backend regression (awaiting field validation)
+
+On the AWOS Pi 5 secure-boot Debian 13 image (kernel
+`6.18.50+rpt-rpi-2712`), the WM8960 card enumerated and the mixer worked, but
+`arecord -D hw:0,0` and `aplay -D hw:0,0` both failed on device open with
+`EINVAL`. Tracing found `snd_soc_dai_startup` and `soc_pcm_open` returning 0,
+but `snd_pcm_hw_constraint_mask(..., SNDRV_PCM_HW_PARAM_ACCESS, 0)`
+returning `-EINVAL`; `snd_dmaengine_pcm_open` was never invoked.
+
+The Pi 5 overlay now explicitly specifies `simple-audio-card,plat` with
+`sound-dai = <&i2s_clk_producer>`. This requests platform-component matching
+by the I2S device-tree node rather than the CPU DAI selector, allowing the
+separate DMA PCM component to join the ASoC runtime. This fix was **validated on `rpi-dev-host1` on 2026-10-28** using
+a newly signed boot image derived from the original encrypted IDP deployment.
+The new `boot.img` SHA-256 is
+`d14b48807197962a4836d5d1a1f8347b5d82e9f956e80a7b2586b0b8cf935aa7`.
+The host rebooted successfully on kernel `6.18.50+rpt-rpi-2712`;
+the LUKS root mounted, SSH/network connectivity was restored, and systemd
+reported zero failed units. The operator confirmed the sound card works.
+Audio waveform/channel measurements and an after-fix DMA trace were not
+provided; those remain optional deeper validation.
+
+For the AWOS secure-boot image, update the overlay in the image-builder source,
+then rebuild and sign a new boot image. The installer in this repository edits
+`/boot/firmware/config.txt` directly and must **not** be used for a device
+whose effective boot configuration is inside signed `boot.img`. Do not replace
+an existing signed boot image with an unsigned one.
+
+Validate after deploying a new signed boot image:
+
+```sh
+arecord -l
+aplay -l
+arecord -D hw:0,0 -f S16_LE -r 48000 -c 2 -d 5 /tmp/2mic.wav
+aplay -D hw:0,0 /tmp/2mic.wav
+```
+
+The corrected device tree was compiled using `dtc -@` and successfully applied
+to the Pi 5 base device tree with `fdtoverlay`; the `cpu` and `plat`
+`sound-dai` references both resolved to `0xb9`. The original signed image and
+replacement signature were independently verified with the same provisioner
+public key. The operator confirmed the sound card works after reboot.
+For a complete measurement record, confirm actual nonzero, varying samples on
+both capture channels and capture an optional after-fix DMA-open trace.
+Keep the previous signed boot image and signature available for rollback.
+
 ## Validation
 
 - All three modules built and passed modpost on `6.18.34+rpt-rpi-2712`.

@@ -62,8 +62,15 @@ returning `-EINVAL`; `snd_dmaengine_pcm_open` was never invoked.
 The Pi 5 overlay now explicitly specifies `simple-audio-card,plat` with
 `sound-dai = <&i2s_clk_producer>`. This requests platform-component matching
 by the I2S device-tree node rather than the CPU DAI selector, allowing the
-separate DMA PCM component to join the ASoC runtime. This is a **proposed fix**, not
-verified hardware validation yet.
+separate DMA PCM component to join the ASoC runtime. This fix was **validated on `rpi-dev-host1` on 2026-10-28** using
+a newly signed boot image derived from the original encrypted IDP deployment.
+The new `boot.img` SHA-256 is
+`d14b48807197962a4836d5d1a1f8347b5d82e9f956e80a7b2586b0b8cf935aa7`.
+The host rebooted successfully on kernel `6.18.50+rpt-rpi-2712`;
+the LUKS root mounted, SSH/network connectivity was restored, and systemd
+reported zero failed units. The operator confirmed the sound card works.
+Audio waveform/channel measurements and an after-fix DMA trace were not
+provided; those remain optional deeper validation.
 
 For the AWOS secure-boot image, update the overlay in the image-builder source,
 then rebuild and sign a new boot image. The installer in this repository edits
@@ -80,9 +87,14 @@ arecord -D hw:0,0 -f S16_LE -r 48000 -c 2 -d 5 /tmp/2mic.wav
 aplay -D hw:0,0 /tmp/2mic.wav
 ```
 
-Confirm that kernel tracing enters `snd_dmaengine_pcm_open`, and check that
-recordings contain nonzero, varying samples on both channels. Keep the previous
-signed boot image and signature available for rollback.
+The corrected device tree was compiled using `dtc -@` and successfully applied
+to the Pi 5 base device tree with `fdtoverlay`; the `cpu` and `plat`
+`sound-dai` references both resolved to `0xb9`. The original signed image and
+replacement signature were independently verified with the same provisioner
+public key. The operator confirmed the sound card works after reboot.
+For a complete measurement record, confirm actual nonzero, varying samples on
+both capture channels and capture an optional after-fix DMA-open trace.
+Keep the previous signed boot image and signature available for rollback.
 
 ## Validation
 
